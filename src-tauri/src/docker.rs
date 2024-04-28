@@ -1,22 +1,44 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Service {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Service {
+    pub name: String,
+    pub image: String,
+    pub ports: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ServiceData {
     image: String,
     ports: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct DockerCompose {
-    services: std::collections::HashMap<String, Service>,
+#[derive(Debug, Deserialize)]
+pub struct DockerCompose {
+    services: HashMap<String, ServiceData>,
 }
 
-pub fn parse_docker_compose(file_path: &str) -> String {
-    let file = File::open(file_path).expect("Failed to open file");
+impl DockerCompose {
+    pub fn get_services(&self) -> Vec<Service> {
+        let services: Vec<Service> = self
+            .services
+            .iter()
+            .map(|(name, service_data)| Service {
+                name: name.clone(),
+                image: service_data.image.clone(),
+                ports: service_data.ports.clone(),
+            })
+            .collect();
+        services
+    }
+}
+
+pub fn parse_docker_compose(file_path: &str) -> Result<DockerCompose, Box<dyn std::error::Error>> {
+    let file = File::open(file_path)?;
     let reader = BufReader::new(file);
-    let docker_compose_yaml: DockerCompose =
-        serde_yaml::from_reader(reader).expect("Failed to parse YAML");
-    serde_json::to_string(&docker_compose_yaml).expect("Failed to convert to JSON")
+    let docker_compose: DockerCompose = serde_yaml::from_reader(reader)?;
+    Ok(docker_compose)
 }
